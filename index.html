@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixPick | 인터랙티브 기능 데모 (고도화)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Style & Tooltip System -->
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+    
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #070c1e;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+      word-break: keep-all;
+      overflow: hidden;
+    }
+
+    /* Glassmorphism Classes */
+    .glass-panel {
+      background: rgba(17, 25, 50, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .glass-card:hover, .glass-card.active {
+      border-color: rgba(255, 91, 98, 0.6);
+      background: rgba(255, 91, 98, 0.08);
+    }
+
+    /* Easy Term Tooltip System */
+    .t-tip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      border-bottom: 1px dashed #38bdf8;
+      color: #38bdf8;
+      cursor: help;
+      font-weight: 600;
+    }
+    .t-tip .t-content {
+      visibility: hidden;
+      opacity: 0;
+      width: 270px;
+      background-color: rgba(11, 19, 41, 0.96);
+      backdrop-filter: blur(12px);
+      color: #f1f5f9;
+      text-align: left;
+      border-radius: 12px;
+      padding: 12px 14px;
+      position: absolute;
+      z-index: 99999;
+      bottom: 130%;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    .t-tip:hover .t-content {
+      visibility: visible;
+      opacity: 1;
+      bottom: 140%;
+    }
+    .t-tip .t-content::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -6px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: rgba(56, 189, 248, 0.4) transparent transparent transparent;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5b62; }
+
+    /* Keyframe Animations */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(255, 91, 98, 0.3); }
+      50% { box-shadow: 0 0 28px rgba(255, 91, 98, 0.6); }
+    }
+    .pulse-glow { animation: pulseGlow 2.5s infinite; }
+
+    @keyframes scanLine {
+      0% { top: 0%; }
+      100% { top: 100%; }
+    }
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0; height: 2px;
+      background: #ff5b62;
+      box-shadow: 0 0 12px #ff5b62;
+      animation: scanLine 2s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#070c1e] text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- Top Navigation Header -->
+  <header class="h-[62px] bg-[#0d1630]/90 border-b border-slate-800 px-6 flex items-center justify-between flex-shrink-0 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#ff5b62] to-[#ff8a90] flex items-center justify-center font-black text-white text-xl shadow-lg shadow-rose-500/30">
+        F
+      </div>
+      <div>
+        <span class="font-extrabold text-xl tracking-tight text-white">FixPick</span>
+        <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">Interactive Demo v3.2</span>
+      </div>
+    </div>
+    <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-full">
+      <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-rose-400"></i>
+      <span>화면 요소를 클릭하면 실시간 동작 결과를 체험하실 수 있습니다</span>
+    </div>
+  </header>
+
+  <!-- Main Layout Body -->
+  <div class="flex flex-1 min-h-0 relative">
+    
+    <!-- Left Navigation Sidebar -->
+    <nav class="w-64 bg-[#0a1126] border-r border-slate-800/80 p-4 flex flex-col gap-1.5 flex-shrink-0 overflow-y-auto">
+      <div class="text-[11px] font-bold text-rose-400 tracking-wider uppercase mb-2 px-3 pt-1">Function Modules</div>
+      
+      <button class="nav-btn active flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="resize">
+        <span class="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-black">01</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">규격 리사이징</span>
+          <span class="text-[10px] text-slate-400">채널별 자동 비율 변환</span>
+        </div>
+      </button>
+
+      <button class="nav-btn flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="export">
+        <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-black">02</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">멀티 플랫폼 배포</span>
+          <span class="text-[10px] text-slate-400">다중 채널 일괄 전송</span>
+        </div>
+      </button>
+
+      <button class="nav-btn flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="preset">
+        <span class="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-black">03</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">팀 프리셋 공유</span>
+          <span class="text-[10px] text-slate-400">사내 디자인 규칙 동기화</span>
+        </div>
+      </button>
+
+      <button class="nav-btn flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="rename">
+        <span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-black">04</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">파일명 일괄 변경</span>
+          <span class="text-[10px] text-slate-400">규칙 치환 및 EXIF 제거</span>
+        </div>
+      </button>
+
+      <button class="nav-btn flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="upscale">
+        <span class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-black">05</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">이미지 업스케일</span>
+          <span class="text-[10px] text-slate-400">AI 초해상도 4K 복원</span>
+        </div>
+      </button>
+
+      <button class="nav-btn flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left text-slate-300 hover:bg-slate-800/60" data-mode="card">
+        <span class="w-6 h-6 rounded-lg bg-pink-500/20 text-pink-400 flex items-center justify-center text-xs font-black">06</span>
+        <div class="flex flex-col">
+          <span class="text-white text-sm font-bold">문구·카드뉴스 제작</span>
+          <span class="text-[10px] text-slate-400">자동 텍스트 레이아웃</span>
+        </div>
+      </button>
+
+      <div class="mt-auto pt-4 border-t border-slate-800/80 p-2">
+        <div class="text-[11px] text-slate-400 leading-relaxed">
+          💡 <span class="font-bold text-slate-200">Zero Server Cost</span><br>
+          대다수 연산은 사용자 웹 브라우저 단에서 직접 구동됩니다.
+        </div>
+      </div>
+    </nav>
+
+    <!-- Center Stage Area -->
+    <main class="flex-1 p-6 overflow-y-auto flex flex-col min-w-0 bg-[#070c1e]" id="stage-container">
+      <!-- Dynamic Stage Content Injected via JS -->
+    </main>
+
+  </div>
+
+  <!-- Bottom Control Bar -->
+  <footer class="h-12 bg-[#0a1126] border-t border-slate-800 px-6 flex items-center justify-between text-xs text-slate-400 flex-shrink-0 z-30">
+    <div class="flex items-center gap-4">
+      <span id="counter" class="font-mono text-rose-400 font-bold bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">01 / 06</span>
+      <span class="hidden sm:inline font-medium text-slate-300">FixPick · 업로드 한 번으로 반복 수작업 90% 감축</span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="sourcesBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-rose-300 hover:text-white transition-all border border-slate-700">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+        <span>검증 출처·근거</span>
+      </button>
+
+      <div class="flex items-center gap-1 border-l border-slate-800 pl-3">
+        <button id="prevBtn" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <button id="nextBtn" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Sources & Evidence Modal -->
+  <div id="sourcesModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden place-items-center p-4">
+    <div class="bg-[#0f172a] border border-slate-700 rounded-2xl p-6 max-w-2xl w-full shadow-2xl relative space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-check-2" class="text-rose-400 w-5 h-5"></i>
+          <h2 class="text-lg font-bold text-white">검증 출처 및 심사 참고 링크</h2>
+        </div>
+        <button id="closeSources" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed">
+        본 서비스 기획 및 구현에 참조된 관련 법령, 공공 통계, 상표권 검색 및 글로벌 SaaS 벤치마크 출처입니다.
+      </p>
+
+      <div class="space-y-2 text-xs">
+        <a href="https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=277359" target="_blank" rel="noopener" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 transition">
+          <span class="text-slate-200 font-semibold">국가법령정보센터 · 위치정보의 보호 및 이용 등에 관한 법률</span>
+          <i data-lucide="external-link" class="w-4 h-4 text-slate-500"></i>
+        </a>
+        <a href="https://www.kipris.or.kr/" target="_blank" rel="noopener" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 transition">
+          <span class="text-slate-200 font-semibold">KIPRIS · 특허청 국내 상표권 검색 (FixPick 출원 점검)</span>
+          <i data-lucide="external-link" class="w-4 h-4 text-slate-500"></i>
+        </a>
+        <a href="https://kosis.kr/" target="_blank" rel="noopener" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 transition">
+          <span class="text-slate-200 font-semibold">통계청 KOSIS · 통신판매업 및 이커머스 사업체 수 (SAM 근거)</span>
+          <i data-lucide="external-link" class="w-4 h-4 text-slate-500"></i>
+        </a>
+        <a href="https://chartmogul.com/reports/saas-conversion-report/" target="_blank" rel="noopener" class="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 transition">
+          <span class="text-slate-200 font-semibold">ChartMogul · SaaS Freemium Conversion Report (유료 전환율)</span>
+          <i data-lucide="external-link" class="w-4 h-4 text-slate-500"></i>
+        </a>
+      </div>
+
+      <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+        <strong class="text-rose-400 block font-semibold">💡 클라이언트 보안 기술 명세:</strong>
+        <p>• JPEG EXIF 메타데이터 제거: piexifjs 기반 브라우저 로컬 파싱 처리</p>
+        <p>• PNG 및 기타 포맷: HTML5 Canvas API 재인코딩으로 이미지 외 메타 파기 우회</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Easy Term Tooltip Helper Function
+    function tTip(term, exp) {
+      return `<span class="t-tip">${term}<span class="t-content"><strong class="text-rose-400 block mb-1 text-[13px]">💡 쉽게 말하면?</strong>${exp}</span></span>`;
+    }
+
+    const modes = ['resize', 'export', 'preset', 'rename', 'upscale', 'card'];
+    let index = 0;
+
+    const info = {
+      resize: {
+        eyebrow: 'CORE FUNCTION 01',
+        title: '여러 사이트 규격 리사이징',
+        lead: `단 한 장의 원본 이미지를 인스타그램, 릴스, 상세페이지 등 채널별 ${tTip('규격 비율', '각 플랫폼에서 예쁘게 나오도록 요구하는 가로 세로 사진 크기')}에 맞춰 동시 변환합니다.`
+      },
+      export: {
+        eyebrow: 'SUB FUNCTION 02',
+        title: '멀티 플랫폼 원클릭 동시 배포',
+        lead: `리사이징된 결과물들을 각각의 SNS 및 스토어에 연결된 ${tTip('API 통신', '우리 서비스가 인스타나 유튜브에 사진을 자동으로 배달해주는 통로')}을 통해 단번에 내보냅니다.`
+      },
+      preset: {
+        eyebrow: 'SUB FUNCTION 03',
+        title: '팀별 프리셋(Preset) 공유',
+        lead: `팀에서 자주 사용하는 ${tTip('프리셋', '자주 쓰는 폰트, 여백, 로고 위치 등의 사전 설정 도장')}을 동기화하여 누구나 동일한 품질로 작업합니다.`
+      },
+      rename: {
+        eyebrow: 'SUB FUNCTION 04',
+        title: '파일명 일괄 변경 & EXIF 제거',
+        lead: `의미 없는 ${tTip('난수 파일명', '알아볼 수 없게 섞인 복잡한 이름')}을 규칙에 맞게 일괄 치환하고, 사진 속 ${tTip('EXIF 메타데이터', '사진에 숨겨진 촬영 장소(GPS)나 기기 정보')}를 자동 소거합니다.`
+      },
+      upscale: {
+        eyebrow: 'SUB FUNCTION 05',
+        title: 'AI 초해상도 업스케일링',
+        lead: `저화질이나 작은 크기의 이미지를 ${tTip('AI 초해상도 기술', '깨진 자리를 똑똑한 AI가 매끄럽게 4K 고화질로 복원해주는 기술')}로 선명하게 키워 활용합니다.`
+      },
+      card: {
+        eyebrow: 'SUB FUNCTION 06',
+        title: '문구 삽입 및 카드뉴스 자동 생성',
+        lead: `홍보용 문구만 입력하면 팀 템플릿 레이아웃에 맞춰 ${tTip('Canvas API', '내 인터넷 창 안에서 이미지를 깔끔하게 합성해내는 무료 기술')}로 카드뉴스를 3초 만에 완성합니다.`
+      }
+    };
+
+    // Render Side Panel for Steps & Main Content Explanation
+    function sideView(mode) {
+      const steps = {
+        resize: [
+          '원본 이미지를 업로드합니다.',
+          '원하는 채널 규격(1:1, 9:16 등)을 고릅니다.',
+          '여백 패딩 옵션을 확인합니다.',
+          '클릭 한 번으로 변환 완료!'
+        ],
+        export: [
+          '전송할 멀티 채널을 선택합니다.',
+          '계정 연동 상태를 확인합니다.',
+          '배포 크레딧 소모량을 점검합니다.',
+          '버튼 클릭 시 일괄 자동 전송!'
+        ],
+        preset: [
+          '우리 팀의 워크스페이스를 선택합니다.',
+          '공유된 프리셋 규칙을 로드합니다.',
+          '폰트/여백/로고 위치 동기화 확인.',
+          '팀원 전체가 즉시 적용 사용!'
+        ],
+        rename: [
+          '파일명 규칙 패턴을 지정합니다.',
+          '접두어 및 일련번호를 입력합니다.',
+          'EXIF GPS 위치 정보 소거 체크.',
+          '미리보기 확인 후 일괄 변경!'
+        ],
+        upscale: [
+          '저해상도 이미지 소스를 불러옵니다.',
+          '배율(2x ~ 4x) 슬라이더를 조절합니다.',
+          '픽셀 계산 및 AI 연산 준비.',
+          '4K UHD 고화질 복원 저장!'
+        ],
+        card: [
+          '메인 문구 및 부제목을 입력합니다.',
+          '브랜드 테마 스타일을 고릅니다.',
+          '3장 연속 카드 템플릿 실시간 렌더링.',
+          '즉시 홍보용 이미지 생성 완료!'
+        ]
+      }[mode];
+
+      const explanations = {
+        resize: '원본 이미지 한 장으로 인스타그램(1:1), 릴스(9:16), 상세배너(16:9) 등 채널별 규격 비율에 맞춰 스마트 패딩 여백과 크기를 한 번에 최적화 생성합니다.',
+        export: '각 채널별로 일일이 로그인하여 업로드할 필요 없이, 연동된 API를 통해 리사이징된 최적화 결과물을 여러 목적지로 원클릭 동시 전송합니다.',
+        preset: '부서 및 프로젝트별 폰트, 여백, 로고 위치, 파일명 규칙을 저장하고 공유하여, 신규 입사자나 외주 작업자도 동일한 품질로 즉시 작업합니다.',
+        rename: '수백 개의 난수 파일명을 규칙(접두어+일련번호)에 맞게 1초 만에 치환하며, 보안 유출 우려가 있는 사진 속 GPS 위치 정보(EXIF)를 자동 소거합니다.',
+        upscale: '저화질 로고나 깨진 캡처 이미지를 AI 딥러닝 복원 알고리즘이 픽셀 단위를 재창조하여 4K/8K 고해상도로 또렷하게 확대·복원합니다.',
+        card: '홍보용 문구만 입력하면 팀 템플릿 레이아웃에 맞춰 글자 정렬과 배경 박스가 자동 세팅되어, 디자인 감각 없이도 3초 만에 카드뉴스가 완성됩니다.'
+      }[mode];
+
+      return `
+        <aside class="glass-panel rounded-2xl p-5 flex flex-col justify-between gap-4 text-xs h-full">
+          <div class="flex items-center justify-center gap-2 border-b border-slate-700/80 pb-3 text-center">
+            <i data-lucide="play-circle" class="text-rose-400 w-4 h-4"></i>
+            <h3 class="text-sm font-bold text-white">이 기능의 작업 스텝</h3>
+          </div>
+          
+          <div class="space-y-3 my-auto flex flex-col justify-center">
+            ${steps.map((st, i) => `
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 font-bold flex items-center justify-center text-[10px] flex-shrink-0 border border-rose-500/30">${i + 1}</span>
+                <span class="text-slate-300 leading-tight">${st}</span>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="pt-4 border-t border-slate-800 space-y-2 flex flex-col items-center justify-center text-center">
+            <div class="flex items-center justify-center gap-1.5 text-rose-400 font-bold text-[11px]">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>주요 내용 설명</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center flex items-center justify-center w-full min-h-[72px]">
+              "${explanations}"
+            </p>
+          </div>
+        </aside>
+      `;
+    }
+
+    // Dynamic Body Views
+    function resizeBody() {
+      return `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-300">목적지 채널 규격을 선택하세요</label>
+            <span class="text-[11px] text-rose-400 font-semibold bg-rose-500/10 px-2 py-0.5 rounded">실시간 비율 변환</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3" id="sizeTiles">
+            <div class="glass-card active p-3 rounded-xl cursor-pointer transition border border-slate-700" data-ratio="1/1" data-label="인스타그램 (1:1)" data-size="1080 × 1080">
+              <div class="font-bold text-sm text-white flex items-center justify-between">인스타그램 <i data-lucide="instagram" class="w-4 h-4 text-pink-400"></i></div>
+              <div class="text-[11px] text-slate-400 mt-1">1080 × 1080 (1:1)</div>
+            </div>
+            <div class="glass-card p-3 rounded-xl cursor-pointer transition border border-slate-700" data-ratio="9/16" data-label="릴스/쇼츠 (9:16)" data-size="1080 × 1920">
+              <div class="font-bold text-sm text-white flex items-center justify-between">릴스 / 쇼츠 <i data-lucide="smartphone" class="w-4 h-4 text-cyan-400"></i></div>
+              <div class="text-[11px] text-slate-400 mt-1">1080 × 1920 (9:16)</div>
+            </div>
+            <div class="glass-card p-3 rounded-xl cursor-pointer transition border border-slate-700" data-ratio="16/9" data-label="상세페이지 배너 (16:9)" data-size="1920 × 1080">
+              <div class="font-bold text-sm text-white flex items-center justify-between">상세 배너 <i data-lucide="layout" class="w-4 h-4 text-emerald-400"></i></div>
+              <div class="text-[11px] text-slate-400 mt-1">1920 × 1080 (16:9)</div>
+            </div>
+          </div>
+
+          <!-- Live Interactive Preview Box -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl h-52 flex flex-col items-center justify-center relative overflow-hidden p-4">
+            <div id="previewBox" class="transition-all duration-300 ease-out bg-gradient-to-tr from-rose-500/30 to-purple-600/30 border-2 border-rose-500/80 rounded-xl flex flex-col items-center justify-center p-3 text-center shadow-lg w-36 h-36">
+              <i data-lucide="image" class="w-8 h-8 text-rose-300 mb-1"></i>
+              <span id="previewLabel" class="text-xs font-bold text-white">인스타그램 (1:1)</span>
+              <span id="previewSize" class="text-[10px] text-rose-200/80 font-mono">1080 × 1080</span>
+            </div>
+            <span class="absolute bottom-2 right-3 text-[10px] text-slate-500 font-mono">Real-time Ratio Simulation</span>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-rose-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="wand-2" class="w-4 h-4"></i>
+            <span>선택한 규격으로 일괄 변환하기</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            <span>인스타그램 규격(1080x1080) 최적화 변환이 완료되었습니다!</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function exportBody() {
+      return `
+        <div class="space-y-4">
+          <label class="text-xs font-bold text-slate-300 block">동시에 배포할 목적지 채널을 클릭해 고르세요</label>
+
+          <div class="flex flex-wrap gap-2.5" id="exportChips">
+            <button class="chip active px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white border border-rose-400 flex items-center gap-1.5 transition">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> 인스타그램
+            </button>
+            <button class="chip active px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white border border-rose-400 flex items-center gap-1.5 transition">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> 유튜브 쇼츠
+            </button>
+            <button class="chip px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 네이버 블로그
+            </button>
+            <button class="chip px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 스마트스토어
+            </button>
+            <button class="chip px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 카카오톡 채널
+            </button>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400">선택한 배포 채널 수</span>
+              <span id="selectedCount" class="font-bold text-cyan-400 font-mono">2개 채널</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400">예상 API 전송 소모 크레딧</span>
+              <span id="creditCost" class="font-bold text-rose-400 font-mono">10 크레딧</span>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>선택 채널에 동시 원클릭 배포하기</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-cyan-950/50 border border-cyan-500/40 text-cyan-300 text-xs rounded-xl flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400"></i>
+            <span>인스타그램 & 유튜브 쇼츠 API 연동 배포가 성공적으로 완료되었습니다!</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function presetBody() {
+      return `
+        <div class="space-y-4">
+          <label class="text-xs font-bold text-slate-300 block">우리 팀이 자주 쓰는 디자인 규격 세트를 고르세요</label>
+
+          <div class="grid grid-cols-3 gap-3" id="presetTiles">
+            <div class="glass-card active p-3 rounded-xl cursor-pointer border border-slate-700" data-name="마케팅팀 SNS 세트" data-desc="인스타·릴스·카카오톡 규격 패키지">
+              <div class="font-bold text-sm text-white">마케팅팀 SNS 세트</div>
+              <div class="text-[11px] text-purple-300 mt-1">인스타·릴스·카카오</div>
+            </div>
+            <div class="glass-card p-3 rounded-xl cursor-pointer border border-slate-700" data-name="쇼핑몰 상세 세트" data-desc="상세페이지·썸네일·대표배너 패키지">
+              <div class="font-bold text-sm text-white">쇼핑몰 상세 세트</div>
+              <div class="text-[11px] text-slate-400 mt-1">상세·썸네일·배너</div>
+            </div>
+            <div class="glass-card p-3 rounded-xl cursor-pointer border border-slate-700" data-name="홍보팀 보고서 세트" data-desc="사내보고서·여백규격·파일명 규칙 패키지">
+              <div class="font-bold text-sm text-white">홍보팀 보고서 세트</div>
+              <div class="text-[11px] text-slate-400 mt-1">여백·파일명 규칙</div>
+            </div>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2.5">
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+              <span class="text-slate-400">선택된 프리셋:</span>
+              <span id="chosenPreset" class="font-bold text-purple-300">마케팅팀 SNS 세트</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+              <span class="text-slate-400">공유 대상:</span>
+              <span class="text-slate-200">마케팅 1팀 (전원 실시간 동기화)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">적용 항목:</span>
+              <span class="text-slate-200">Pretendard, 24px, 워터마크 우하단</span>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-purple-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            <span>이 프리셋 규칙으로 작업 시작하기</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-purple-950/50 border border-purple-500/40 text-purple-300 text-xs rounded-xl flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-purple-400"></i>
+            <span>팀 프리셋이 성공적으로 로드되었습니다! 팀원들과 동기화됩니다.</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renameBody() {
+      return `
+        <div class="space-y-4">
+          <label class="text-xs font-bold text-slate-300 block">파일명 변환 규칙 및 치환 접두어를 설정하세요</label>
+
+          <div class="grid grid-cols-2 gap-3">
+            <input type="text" id="prefixInput" value="2026_여름프로모션" class="bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500" placeholder="접두어 입력">
+            <select id="renameRule" class="bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+              <option value="num">일련번호 (001, 002...)</option>
+              <option value="date">날짜 + 일련번호</option>
+              <option value="encrypt">보안 무작위 암호화</option>
+            </select>
+          </div>
+
+          <div class="flex items-center justify-between p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs">
+            <span class="text-slate-300">사진 속 EXIF GPS 위치 정보 자동 소거</span>
+            <input type="checkbox" checked class="w-4 h-4 accent-rose-500 cursor-pointer">
+          </div>
+
+          <!-- File List Preview -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 space-y-2 text-xs font-mono" id="filePreviewList">
+            <div class="flex justify-between items-center border-b border-slate-800/80 pb-1.5 text-slate-500">
+              <span>AS-IS (원본)</span>
+              <span>TO-BE (변환)</span>
+            </div>
+            <div class="flex justify-between items-center text-slate-400">
+              <span class="line-through decoration-rose-500/60">IMG_20260721_102.jpg</span>
+              <span class="text-amber-400 font-bold" id="res1">2026_여름프로모션_001.jpg</span>
+            </div>
+            <div class="flex justify-between items-center text-slate-400">
+              <span class="line-through decoration-rose-500/60">KakaoTalk_Photo_819.png</span>
+              <span class="text-amber-400 font-bold" id="res2">2026_여름프로모션_002.png</span>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-amber-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="file-edit" class="w-4 h-4"></i>
+            <span>파일명 일괄 변경 및 EXIF 삭제 적용</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-amber-950/50 border border-amber-500/40 text-amber-300 text-xs rounded-xl flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-400"></i>
+            <span>수백 개의 파일명이 지정된 규칙대로 일괄 정리되었습니다!</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function upscaleBody() {
+      return `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-bold text-slate-300">AI 해상도 확대 배율 조절</label>
+            <span id="scaleValue" class="text-xs font-bold text-emerald-400 font-mono">2× 업스케일 (HD → 4K)</span>
+          </div>
+
+          <input type="range" id="scaleSlider" min="2" max="4" value="2" class="w-full accent-emerald-500 cursor-pointer">
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl h-44 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="scan-line"></div>
+            <div class="text-center space-y-1">
+              <div class="text-xs text-slate-400">원본 해상도: <span class="text-slate-200 font-mono">1200 × 800 px</span></div>
+              <div class="text-lg font-extrabold text-emerald-400 font-mono" id="targetResolution">2400 × 1600 px (4K UHD)</div>
+              <div class="text-[10px] text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded-full inline-block">AI 초해상도 딥러닝 복원 적용</div>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>AI 업스케일링 구동 및 결과 저장</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            <span>깨진 화질이 선명한 4K 고화질로 복원되었습니다!</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function cardBody() {
+      return `
+        <div class="space-y-4">
+          <label class="text-xs font-bold text-slate-300 block">카드뉴스에 들어갈 메인 문구를 입력하세요</label>
+
+          <input type="text" id="cardTextInput" value="업로드 한 번으로, 야근을 3분으로" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-pink-500">
+
+          <!-- 3-Card News Carousel Simulation -->
+          <div class="grid grid-cols-3 gap-3" id="cardsGrid">
+            <div class="bg-gradient-to-br from-rose-600 to-purple-700 rounded-xl p-3 h-28 flex flex-col justify-end text-white shadow-lg relative overflow-hidden">
+              <span class="text-[9px] opacity-80 uppercase font-mono">Card 01</span>
+              <div class="font-extrabold text-xs leading-tight mt-auto" id="cardTextTarget">업로드 한 번으로,<br>야근을 3분으로</div>
+            </div>
+            <div class="bg-gradient-to-br from-blue-600 to-cyan-700 rounded-xl p-3 h-28 flex flex-col justify-end text-white shadow-lg relative overflow-hidden">
+              <span class="text-[9px] opacity-80 uppercase font-mono">Card 02</span>
+              <div class="font-extrabold text-xs leading-tight mt-auto">FixPick 하나로<br>모든 채널 종결</div>
+            </div>
+            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-xl p-3 h-28 flex flex-col justify-end text-white shadow-lg relative overflow-hidden">
+              <span class="text-[9px] opacity-80 uppercase font-mono">Card 03</span>
+              <div class="font-extrabold text-xs leading-tight mt-auto">지금 바로<br>무료로 시작하세요</div>
+            </div>
+          </div>
+
+          <button id="runBtn" class="w-full bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-pink-500/20 text-xs transition flex items-center justify-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            <span>3장 세트 카드뉴스 생성하기</span>
+          </button>
+
+          <div id="resultBox" class="hidden p-3 bg-pink-950/50 border border-pink-500/40 text-pink-300 text-xs rounded-xl flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-pink-400"></i>
+            <span>카드뉴스 3장이 템플릿 레이아웃에 맞춰 즉시 생성되었습니다!</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // Attach Event Handlers for Active Interactive Mode
+    function wireEvents(mode) {
+      const runBtn = document.querySelector('#runBtn');
+      const resultBox = document.querySelector('#resultBox');
+
+      if (runBtn && resultBox) {
+        runBtn.onclick = () => {
+          resultBox.classList.remove('hidden');
+        };
+      }
+
+      if (mode === 'resize') {
+        const tiles = document.querySelectorAll('#sizeTiles .glass-card');
+        const previewBox = document.querySelector('#previewBox');
+        const previewLabel = document.querySelector('#previewLabel');
+        const previewSize = document.querySelector('#previewSize');
+
+        tiles.forEach(tile => {
+          tile.onclick = () => {
+            tiles.forEach(t => t.classList.remove('active'));
+            tile.classList.add('active');
+
+            const ratio = tile.dataset.ratio;
+            const label = tile.dataset.label;
+            const size = tile.dataset.size;
+
+            previewLabel.textContent = label;
+            previewSize.textContent = size;
+
+            if (ratio === '1/1') {
+              previewBox.className = "transition-all duration-300 ease-out bg-gradient-to-tr from-rose-500/30 to-purple-600/30 border-2 border-rose-500/80 rounded-xl flex flex-col items-center justify-center p-3 text-center shadow-lg w-36 h-36";
+            } else if (ratio === '9/16') {
+              previewBox.className = "transition-all duration-300 ease-out bg-gradient-to-tr from-cyan-500/30 to-blue-600/30 border-2 border-cyan-500/80 rounded-xl flex flex-col items-center justify-center p-3 text-center shadow-lg w-28 h-44";
+            } else if (ratio === '16/9') {
+              previewBox.className = "transition-all duration-300 ease-out bg-gradient-to-tr from-emerald-500/30 to-teal-600/30 border-2 border-emerald-500/80 rounded-xl flex flex-col items-center justify-center p-3 text-center shadow-lg w-48 h-28";
+            }
+          };
+        });
+      }
+
+      if (mode === 'export') {
+        const chips = document.querySelectorAll('#exportChips .chip');
+        const countSpan = document.querySelector('#selectedCount');
+        const creditSpan = document.querySelector('#creditCost');
+
+        chips.forEach(chip => {
+          chip.onclick = () => {
+            chip.classList.toggle('active');
+            if (chip.classList.contains('active')) {
+              chip.className = "chip active px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white border border-rose-400 flex items-center gap-1.5 transition";
+              chip.querySelector('i').setAttribute('data-lucide', 'check');
+            } else {
+              chip.className = "chip px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 transition";
+              chip.querySelector('i').setAttribute('data-lucide', 'plus');
+            }
+            lucide.createIcons();
+
+            const activeCount = document.querySelectorAll('#exportChips .chip.active').length;
+            countSpan.textContent = `${activeCount}개 채널`;
+            creditSpan.textContent = `${activeCount * 5} 크레딧`;
+          };
+        });
+      }
+
+      if (mode === 'preset') {
+        const tiles = document.querySelectorAll('#presetTiles .glass-card');
+        const chosen = document.querySelector('#chosenPreset');
+
+        tiles.forEach(tile => {
+          tile.onclick = () => {
+            tiles.forEach(t => t.classList.remove('active'));
+            tile.classList.add('active');
+            if (chosen) chosen.textContent = tile.dataset.name;
+          };
+        });
+      }
+
+      if (mode === 'rename') {
+        const input = document.querySelector('#prefixInput');
+        const res1 = document.querySelector('#res1');
+        const res2 = document.querySelector('#res2');
+
+        if (input) {
+          input.oninput = () => {
+            const val = input.value.trim() || '파일';
+            if (res1) res1.textContent = `${val}_001.jpg`;
+            if (res2) res2.textContent = `${val}_002.png`;
+          };
+        }
+      }
+
+      if (mode === 'upscale') {
+        const slider = document.querySelector('#scaleSlider');
+        const valText = document.querySelector('#scaleValue');
+        const targetRes = document.querySelector('#targetResolution');
+
+        if (slider) {
+          slider.oninput = () => {
+            const val = slider.value;
+            valText.textContent = `${val}× 업스케일 (${val === '2' ? 'HD → 4K' : val === '3' ? 'HD → 6K' : 'HD → 8K'})`;
+            targetRes.textContent = `${1200 * val} × ${800 * val} px (${val === '4' ? '8K Super High-Res' : '4K UHD'})`;
+          };
+        }
+      }
+
+      if (mode === 'card') {
+        const input = document.querySelector('#cardTextInput');
+        const target = document.querySelector('#cardTextTarget');
+
+        if (input && target) {
+          input.oninput = () => {
+            target.innerHTML = input.value.replace(/ /g, '<br>') || '문구를 입력하세요';
+          };
+        }
+      }
+
+      // Re-init Lucide Icons
+      try { lucide.createIcons(); } catch (e) {}
+    }
+
+    // Render Entire Stage Component
+    function renderStage() {
+      const mode = modes[index];
+      const curInfo = info[mode];
+
+      const bodyHTML = {
+        resize: resizeBody,
+        export: exportBody,
+        preset: presetBody,
+        rename: renameBody,
+        upscale: upscaleBody,
+        card: cardBody
+      }[mode]();
+
+      const container = document.querySelector('#stage-container');
+      container.innerHTML = `
+        <div class="max-w-5xl w-full mx-auto space-y-5">
+          <div>
+            <span class="text-xs font-bold text-rose-400 tracking-wider">${curInfo.eyebrow}</span>
+            <h1 class="text-2xl font-extrabold text-white mt-1">${curInfo.title}</h1>
+            <p class="text-xs text-slate-300 leading-relaxed mt-1">${curInfo.lead}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="md:col-span-2 glass-panel rounded-2xl p-5 border border-slate-800 shadow-xl flex flex-col justify-between">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <i data-lucide="sliders" class="w-4 h-4 text-rose-400"></i> FixPick 라이브 대화형 작업창
+                </span>
+                <span class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Client-side Processing</span>
+              </div>
+              
+              ${bodyHTML}
+            </div>
+
+            ${sideView(mode)}
+          </div>
+        </div>
+      `;
+
+      // Update Nav buttons & Counter
+      document.querySelectorAll('.nav-btn').forEach((btn, idx) => {
+        if (idx === index) {
+          btn.classList.add('bg-slate-800/80', 'border-l-4', 'border-rose-500');
+        } else {
+          btn.classList.remove('bg-slate-800/80', 'border-l-4', 'border-rose-500');
+        }
+      });
+
+      document.querySelector('#counter').textContent = `${String(index + 1).padStart(2, '0')} / 06`;
+      wireEvents(mode);
+    }
+
+    // Navigation Controllers
+    document.querySelectorAll('.nav-btn').forEach((btn, idx) => {
+      btn.onclick = () => { index = idx; renderStage(); };
+    });
+
+    document.querySelector('#prevBtn').onclick = () => {
+      index = (index + 5) % 6;
+      renderStage();
+    };
+
+    document.querySelector('#nextBtn').onclick = () => {
+      index = (index + 1) % 6;
+      renderStage();
+    };
+
+    // Sources Modal Controls
+    const sourcesModal = document.querySelector('#sourcesModal');
+    document.querySelector('#sourcesBtn').onclick = () => sourcesModal.classList.remove('hidden'), sourcesModal.classList.add('grid');
+    document.querySelector('#closeSources').onclick = () => sourcesModal.classList.add('hidden'), sourcesModal.classList.remove('grid');
+
+    sourcesModal.onclick = (e) => {
+      if (e.target.id === 'sourcesModal') {
+        sourcesModal.classList.add('hidden');
+        sourcesModal.classList.remove('grid');
+      }
+    };
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') document.querySelector('#nextBtn').click();
+      if (e.key === 'ArrowLeft') document.querySelector('#prevBtn').click();
+      if (e.key === 'Escape') sourcesModal.classList.add('hidden');
+    });
+
+    // Initial Launch Render
+    window.onload = () => {
+      renderStage();
+      try { lucide.createIcons(); } catch (e) {}
+    };
+  </script>
+</body>
+</html>
